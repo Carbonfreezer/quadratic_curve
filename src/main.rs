@@ -1,5 +1,5 @@
 use std::f32::consts::PI;
-use crate::quadratic_fitter::{PointSettingCommand, QuadraticFitter};
+use crate::quadratic_fitter::{PointSettingCommand, QuadPoint, QuadraticFitter};
 use iced::mouse::{Cursor, Interaction};
 use iced::widget::canvas::path::Builder;
 use iced::widget::canvas::{Cache, Geometry, LineCap, Path, Stroke, stroke};
@@ -8,12 +8,22 @@ use iced::window::Settings;
 use iced::{Element, Event, Fill, Point, Rectangle, Renderer, Size, Theme, Vector, mouse};
 
 pub mod quadratic_fitter;
+/// Radius der Greifpunkte in Weltkoordinaten (x, y ∈ [-1, 1]).
+const HANDLE_RADIUS: f32 = 1.0 / 30.0;
 
-#[derive(Debug, Clone,Default)]
-struct DragState {
-    is_mouse_pressed: bool,
-    is_dragging: bool,
+#[derive(Debug, Clone, Copy, Default)]
+enum DragState {
+    #[default]
+    Idle,
+    Dragging(usize),
 }
+
+/// Screen to world coordinates.
+fn to_world(bounds: &Rectangle, position: Point) -> QuadPoint {
+    let (center, radius) = get_center_radius(bounds);
+    [(position.x - center.x) / radius, -(position.y - center.y) / radius]
+}
+
 
 fn main() -> iced::Result {
     iced::application(QuadPainter::new, QuadPainter::update, QuadPainter::view)
@@ -77,26 +87,32 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
         state: &mut Self::State,
         event: &Event,
         bounds: Rectangle,
-        _cursor: Cursor,
+        cursor: Cursor,
     ) -> Option<Action<PointSettingCommand>> {
-        let (center, radius) = get_center_radius(&bounds);
         match event {
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {state.is_mouse_pressed = true;None},
-            Event::Mouse(mouse::Event::CursorMoved { position, .. }) if state.is_mouse_pressed => {
-                // Now we need to get the mouse position into the coordinates of system
-                let x = (position.x - center.x) / radius;
-                let y = -(position.y - center.y) / radius;
-                let circle_radius = if state.is_dragging {f32::INFINITY} else {circle_radius(radius) / radius};
-
-                let res = self.fitter.get_closest_point([x,y], circle_radius).map(Action::publish);
-                state.is_dragging = res.is_some();
-                res
-            },
-            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {state.is_mouse_pressed = false; state.is_dragging=false; None}
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                let world = to_world(&bounds, cursor.position_over(bounds)?);
+                if let Some(index) = self.fitter.closest_point(world, HANDLE_RADIUS) {
+                    *state = DragState::Dragging(index);
+                }
+                None
+            }
+            Event::Mouse(mouse::Event::CursorMoved { position, .. }) => {
+                let DragState::Dragging(index) = *state else {
+                    return None;
+                };
+                Some(Action::publish(PointSettingCommand {
+                    index_to_set: index,
+                    point: to_world(&bounds, *position),
+                }))
+            }
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
+                *state = DragState::Idle;
+                None
+            }
             _ => None,
         }
-
-           }
+    }
 
     fn draw(
         &self,
@@ -174,23 +190,18 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
         vec![content]
     }
 
-    fn mouse_interaction(
-        &self,
-        _state: &Self::State,
-        bounds: Rectangle,
-        cursor: Cursor,
-    ) -> Interaction {
-        let (center, radius) = get_center_radius(&bounds);
-        let width = radius / 15.0;
-        if self.fitter.get_base_points().iter().any(|point| {
-            cursor.is_over(Rectangle::new(
-                Point::new(center.x + point[0] * radius - width / 2.0, center.y - point[1] * radius - width / 2.0),
-                Size::new( width,  width),
-            ))
-        }) {
-            Interaction::Grab
-        } else {
-            Interaction::default()
+    ///  Checks if we have to draw the mouse.
+    fn mouse_interaction(&self, state: &Self::State, bounds: Rectangle, cursor: Cursor) -> Interaction {
+        if matches!(state, DragState::Dragging(_)) {
+            return Interaction::Grabbing;
+        }
+        match cursor.position_over(bounds) {
+            Some(position)
+            if self.fitter.closest_point(to_world(&bounds, position), HANDLE_RADIUS).is_some() =>
+                {
+                    Interaction::Grab
+                }
+            _ => Interaction::default(),
         }
     }
 }

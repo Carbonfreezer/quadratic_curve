@@ -172,7 +172,7 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
             frame.stroke(&builder.build(), line_stroke);
 
             // Now paint the three circles.
-            let circle_radius = radius / 30.0;
+            let circle_radius = radius * HANDLE_RADIUS;
             for raw_point in self.fitter.get_base_points() {
                 let point = Point::new(raw_point[0] * radius, -raw_point[1] * radius);
                 frame.fill(&Path::circle(point, circle_radius), palette.warning);

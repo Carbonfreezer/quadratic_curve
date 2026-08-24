@@ -28,18 +28,19 @@ impl QuadraticFitter {
     }
 
     /// The distance to the point.
-    fn point_dist(p0: QuadPoint, p1: QuadPoint) -> f32 {
+    fn point_dist_sq(p0: QuadPoint, p1: QuadPoint) -> f32 {
         (p0[0] - p1[0]).powi(2) + (p0[1] - p1[1]).powi(2)
     }
 
-    /// Gets the index of the closest point, works with a maximum range.
-    pub fn get_closest_point(&self, point: QuadPoint, max_range: f32) -> Option<usize> {
+    /// Gets the index of the closest point and generates the setting command.
+    pub fn get_closest_point(&self, point: QuadPoint, mut max_range: f32) -> Option<PointSettingCommand> {
+        max_range *= max_range;
         let scan = self
             .base_points
             .iter()
             .enumerate()
             .fold((max_range, 4), |(old_dist, old_ind), (index, candidate)| {
-                let dist = Self::point_dist(*candidate, point);
+                let dist = Self::point_dist_sq(*candidate, point);
                 if dist < old_dist {
                     (dist, index)
                 } else {
@@ -47,7 +48,7 @@ impl QuadraticFitter {
                 }
             })
             .1;
-        (scan != 4).then_some(scan)
+        (scan != 4).then(|| PointSettingCommand{index_to_set: scan, point})
     }
 
     /// Sets the command at the point.

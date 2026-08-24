@@ -1,11 +1,14 @@
+#![windows_subsystem = "windows"]
+
 use crate::quadratic_fitter::{PointSettingCommand, QuadPoint, QuadraticFitter};
 use iced::mouse::{Cursor, Interaction};
 use iced::widget::canvas::path::Builder;
 use iced::widget::canvas::{Cache, Geometry, LineCap, Path, Stroke, stroke};
 use iced::widget::{Action, canvas, container};
 use iced::window::Settings;
-use iced::{Element, Event, Fill, Point, Rectangle, Renderer, Size, Theme, Vector, mouse};
+use iced::{mouse, window, Element, Event, Fill, Point, Rectangle, Renderer, Size, Theme, Vector};
 use std::f32::consts::PI;
+
 
 pub mod quadratic_fitter;
 /// Radius der Greifpunkte in Weltkoordinaten (x, y ∈ [-1, 1]).
@@ -35,6 +38,10 @@ fn main() -> iced::Result {
                 width: 500.0,
                 height: 500.0,
             },
+            icon: window::icon::from_file_data(
+                include_bytes!("../assets/icon.png"),
+                None,
+            ).ok(),
             ..Settings::default()
         })
         .title("Quadratic function")
@@ -64,8 +71,7 @@ impl QuadPainter {
     }
 
     fn view(&self) -> Element<'_, PointSettingCommand> {
-        let canvas = canvas(self as &Self).width(Fill).height(Fill);
-
+        let canvas = canvas(self).width(Fill).height(Fill);
         container(canvas).into()
     }
 }

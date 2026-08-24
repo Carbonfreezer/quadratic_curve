@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use crate::quadratic_fitter::{PointSettingCommand, QuadPoint, QuadraticFitter};
 use iced::mouse::{Cursor, Interaction};
 use iced::widget::canvas::path::Builder;
@@ -6,6 +5,7 @@ use iced::widget::canvas::{Cache, Geometry, LineCap, Path, Stroke, stroke};
 use iced::widget::{Action, canvas, container};
 use iced::window::Settings;
 use iced::{Element, Event, Fill, Point, Rectangle, Renderer, Size, Theme, Vector, mouse};
+use std::f32::consts::PI;
 
 pub mod quadratic_fitter;
 /// Radius der Greifpunkte in Weltkoordinaten (x, y ∈ [-1, 1]).
@@ -21,9 +21,11 @@ enum DragState {
 /// Screen to world coordinates.
 fn to_world(bounds: &Rectangle, position: Point) -> QuadPoint {
     let (center, radius) = get_center_radius(bounds);
-    [(position.x - center.x) / radius, -(position.y - center.y) / radius]
+    [
+        (position.x - center.x) / radius,
+        -(position.y - center.y) / radius,
+    ]
 }
-
 
 fn main() -> iced::Result {
     iced::application(QuadPainter::new, QuadPainter::update, QuadPainter::view)
@@ -58,7 +60,7 @@ impl QuadPainter {
     }
 
     fn theme(&self) -> Theme {
-        Theme::TokyoNightStorm
+        Theme::TokyoNight
     }
 
     fn view(&self) -> Element<'_, PointSettingCommand> {
@@ -72,12 +74,6 @@ impl QuadPainter {
 fn get_center_radius(rect: &Rectangle) -> (Point, f32) {
     (rect.center(), rect.width.min(rect.height) / 2.0)
 }
-
-fn circle_radius(drawing_radius: f32) -> f32 {
-    drawing_radius / 30.0
-}
-
-/// Simply sets the command
 
 impl canvas::Program<PointSettingCommand> for QuadPainter {
     type State = DragState;
@@ -131,14 +127,12 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
             let width = radius / 200.0;
             let arrow_offset = radius / 20.0;
 
-            let arrow_stroke =
-                Stroke {
-                    width,
-                    style: stroke::Style::Solid(palette.text),
-                    line_cap: LineCap::Round,
-                    ..Stroke::default()
-                };
-
+            let arrow_stroke = Stroke {
+                width,
+                style: stroke::Style::Solid(palette.text),
+                line_cap: LineCap::Round,
+                ..Stroke::default()
+            };
 
             for angle in [0.0, PI / 2.0] {
                 frame.with_save(|frame| {
@@ -178,9 +172,9 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
             frame.stroke(&builder.build(), line_stroke);
 
             // Now paint the three circles.
-            let circle_radius = circle_radius(radius);
+            let circle_radius = radius / 30.0;
             for raw_point in self.fitter.get_base_points() {
-                let point = Point::new(raw_point[0] as f32 * radius, -raw_point[1] * radius);
+                let point = Point::new(raw_point[0] * radius, -raw_point[1] * radius);
                 frame.fill(&Path::circle(point, circle_radius), palette.warning);
             }
         });
@@ -189,16 +183,24 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
     }
 
     ///  Checks if we have to draw the mouse.
-    fn mouse_interaction(&self, state: &Self::State, bounds: Rectangle, cursor: Cursor) -> Interaction {
+    fn mouse_interaction(
+        &self,
+        state: &Self::State,
+        bounds: Rectangle,
+        cursor: Cursor,
+    ) -> Interaction {
         if matches!(state, DragState::Dragging(_)) {
             return Interaction::Grabbing;
         }
         match cursor.position_over(bounds) {
             Some(position)
-            if self.fitter.closest_point(to_world(&bounds, position), HANDLE_RADIUS).is_some() =>
-                {
-                    Interaction::Grab
-                }
+                if self
+                    .fitter
+                    .closest_point(to_world(&bounds, position), HANDLE_RADIUS)
+                    .is_some() =>
+            {
+                Interaction::Grab
+            }
             _ => Interaction::default(),
         }
     }

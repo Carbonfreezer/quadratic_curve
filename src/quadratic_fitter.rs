@@ -8,6 +8,12 @@ const SUPPORT_POINTS : usize = 100;
 /// The stepsize for every point.
 const STEP_SIZE : f32 = 2.0 / SUPPORT_POINTS as f32;
 
+
+/// Minimum distance in x direction..
+const MIN_GAP: f32 = 0.02;
+
+
+
 /// A command to set an index.
 #[derive(Debug, Clone)]
 pub struct PointSettingCommand {
@@ -44,9 +50,23 @@ impl QuadraticFitter {
             .map(|(index, _)| index)
     }
 
-    /// Sets the command at the point.
     pub fn apply_command(&mut self, command: PointSettingCommand) {
-        self.base_points[command.index_to_set] = command.point;
+        let index = command.index_to_set;
+
+
+        // We keep things sorted.
+        let lower = match index {
+            0 => -1.0,
+            _ => self.base_points[index - 1][0] + MIN_GAP,
+        };
+        let upper = match index {
+            2 =>  1.0,
+            _ => self.base_points[index + 1][0] - MIN_GAP,
+        };
+
+        let mut point = command.point;
+        point[0] = point[0].clamp(lower, upper);
+        self.base_points[index] = point;
     }
 
     /// Evaluates the functions.

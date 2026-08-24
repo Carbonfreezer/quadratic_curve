@@ -124,50 +124,48 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
     ) -> Vec<Geometry<Renderer>> {
         let content = self.cache.draw(renderer, bounds.size(), |frame| {
             let palette = theme.palette();
-
             let (center, radius) = get_center_radius(&bounds);
-
             frame.translate(Vector::new(center.x, center.y));
 
             // Draw the coordinate axis:
             let width = radius / 200.0;
             let arrow_offset = radius / 20.0;
 
-            let arrow_stroke = || -> Stroke {
+            let arrow_stroke =
                 Stroke {
                     width,
                     style: stroke::Style::Solid(palette.text),
                     line_cap: LineCap::Round,
                     ..Stroke::default()
-                }
-            };
+                };
+
 
             for angle in [0.0, PI / 2.0] {
                 frame.with_save(|frame| {
                     frame.rotate(angle);
                     frame.stroke(
                         &Path::line(Point::new(0.0, -radius), Point::new(0.0, radius)),
-                        arrow_stroke(),
+                        arrow_stroke,
                     );
                     frame.stroke(
                         &Path::line(
                             Point::new(-arrow_offset, -radius + arrow_offset),
                             Point::new(0.0, -radius),
                         ),
-                        arrow_stroke(),
+                        arrow_stroke,
                     );
                     frame.stroke(
                         &Path::line(
                             Point::new(arrow_offset, -radius + arrow_offset),
                             Point::new(0.0, -radius),
                         ),
-                        arrow_stroke(),
+                        arrow_stroke,
                     );
                 })
             }
 
             // Now we build the line.
-            let make_point = |x: [f32; 2]| Point::new(x[0] * radius, -x[1] * radius);
+            let make_point = |x: QuadPoint| Point::new(x[0] * radius, -x[1] * radius);
             let mut builder = Builder::new();
             let mut que = self.fitter.get_line_points();
             builder.move_to(make_point(que.next().unwrap()));
@@ -175,14 +173,14 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
                 builder.line_to(make_point(point));
             }
 
-            let mut line_stroke = arrow_stroke();
+            let mut line_stroke = arrow_stroke;
             line_stroke.style = stroke::Style::Solid(palette.primary);
             frame.stroke(&builder.build(), line_stroke);
 
             // Now paint the three circles.
             let circle_radius = circle_radius(radius);
             for raw_point in self.fitter.get_base_points() {
-                let point = Point::new(raw_point[0] as f32 * radius, -raw_point[1] as f32 * radius);
+                let point = Point::new(raw_point[0] as f32 * radius, -raw_point[1] * radius);
                 frame.fill(&Path::circle(point, circle_radius), palette.warning);
             }
         });

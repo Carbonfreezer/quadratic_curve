@@ -58,3 +58,4 @@ jobs:
         with:
           executable-name: quadratic_curve
           target: ${{ matrix.platform.target }}
+          changes-file: "Changes.md" # can not be deactivated

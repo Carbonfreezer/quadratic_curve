@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use crate::quadratic_fitter::{PointSettingCommand, QuadPoint, QuadraticFitter};
 use iced::mouse::{Cursor, Interaction};
@@ -6,18 +6,20 @@ use iced::widget::canvas::path::Builder;
 use iced::widget::canvas::{Cache, Geometry, LineCap, Path, Stroke, stroke};
 use iced::widget::{Action, canvas, container};
 use iced::window::Settings;
-use iced::{mouse, window, Element, Event, Fill, Point, Rectangle, Renderer, Size, Theme, Vector};
+use iced::{Element, Event, Fill, Point, Rectangle, Renderer, Size, Theme, Vector, mouse, window};
 use std::f32::consts::PI;
 
-
 pub mod quadratic_fitter;
-/// Radius der Greifpunkte in Weltkoordinaten (x, y ∈ [-1, 1]).
+/// Radius of the grabble point in world coordinates (x, y ∈ [-1, 1]).
 const HANDLE_RADIUS: f32 = 1.0 / 30.0;
 
+/// Internal state used for the GUI.
 #[derive(Debug, Clone, Copy, Default)]
 enum DragState {
+    /// Currently not dragging.
     #[default]
     Idle,
+    /// Dragging the indicated control point.
     Dragging(usize),
 }
 
@@ -38,29 +40,30 @@ fn main() -> iced::Result {
                 width: 500.0,
                 height: 500.0,
             },
-            icon: window::icon::from_file_data(
-                include_bytes!("../assets/icon.png"),
-                None,
-            ).ok(),
+            icon: window::icon::from_file_data(include_bytes!("../assets/icon.png"), None).ok(),
             ..Settings::default()
         })
         .title("Quadratic function")
         .run()
 }
 
+/// The logic structure of the iced application.
 struct QuadPainter {
+    /// The fitting core to compute the curve.
     fitter: QuadraticFitter,
+    /// A cache for the render geometry to avoid unnecessary recalculations.
     cache: Cache,
 }
 
 impl QuadPainter {
     fn new() -> Self {
         Self {
-            fitter: QuadraticFitter::new(),
+            fitter: QuadraticFitter::default(),
             cache: Cache::new(),
         }
     }
 
+    /// Logic is contained here by applying changes from the ui.
     fn update(&mut self, message: PointSettingCommand) {
         self.fitter.apply_command(message);
         self.cache.clear();
@@ -70,13 +73,14 @@ impl QuadPainter {
         Theme::TokyoNight
     }
 
+    /// Rendering is essentially only the canvas.
     fn view(&self) -> Element<'_, PointSettingCommand> {
         let canvas = canvas(self).width(Fill).height(Fill);
         container(canvas).into()
     }
 }
 
-/// The center and the radius of the drawing area.
+/// The center and the radius of the drawing area. Automatically grabs a square area in the middle.
 fn get_center_radius(rect: &Rectangle) -> (Point, f32) {
     (rect.center(), rect.width.min(rect.height) / 2.0)
 }
@@ -84,6 +88,7 @@ fn get_center_radius(rect: &Rectangle) -> (Point, f32) {
 impl canvas::Program<PointSettingCommand> for QuadPainter {
     type State = DragState;
 
+    /// Does the mouse drag logic for the control points.
     fn update(
         &self,
         state: &mut Self::State,
@@ -116,6 +121,7 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
         }
     }
 
+    /// Does the drawing over a cache only to synthesize geometry if needed.
     fn draw(
         &self,
         _: &Self::State,
@@ -188,7 +194,7 @@ impl canvas::Program<PointSettingCommand> for QuadPainter {
         vec![content]
     }
 
-    ///  Checks if we have to draw the mouse.
+    ///  Adjusts the cursor to mouse dragging ability.
     fn mouse_interaction(
         &self,
         state: &Self::State,

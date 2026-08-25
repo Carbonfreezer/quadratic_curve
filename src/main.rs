@@ -1,3 +1,6 @@
+//! Simple demo program for the library iced, that shows a quadratic curve with three interactive 
+//! draggable control points.
+
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use crate::quadratic_fitter::{PointSettingCommand, QuadPoint, QuadraticFitter};
